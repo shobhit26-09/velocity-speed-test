@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Velocity — Internet Speed Test</title>
+<meta name="description" content="Velocity is a fast, accurate internet speed test. Measure your download, upload, ping and jitter in seconds." />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="bg-aurora" aria-hidden="true"></div>
+
+<header class="site-header">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M6 20a10 10 0 1 1 20 0" stroke="url(#bg1)" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M16 20l6.2-7.5" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="16" cy="20" r="2.6" fill="#fff"/>
+      <defs><linearGradient id="bg1" x1="6" y1="10" x2="26" y2="20"><stop stop-color="#30d158"/><stop offset=".55" stop-color="#64d2ff"/><stop offset="1" stop-color="#0a84ff"/></linearGradient></defs>
+    </svg>
+    <span class="brand-name">Velocity</span>
+  </div>
+  <div class="header-meta" id="header-meta">Ready when you are</div>
+</header>
+
+<main class="stage">
+  <!-- Gauge -->
+  <section class="gauge-wrap" id="gauge-wrap">
+    <svg class="gauge" viewBox="0 0 340 340" aria-hidden="true">
+      <defs>
+        <linearGradient id="arcGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#30d158"/>
+          <stop offset="55%" stop-color="#64d2ff"/>
+          <stop offset="100%" stop-color="#0a84ff"/>
+        </linearGradient>
+        <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="6" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <g id="ticks"></g>
+      <circle class="track" cx="170" cy="170" r="132" pathLength="100"
+              stroke-dasharray="75 25" transform="rotate(135 170 170)"/>
+      <circle class="arc" id="arc" cx="170" cy="170" r="132" pathLength="100"
+              stroke-dasharray="0 100" transform="rotate(135 170 170)" filter="url(#glow)"/>
+      <circle class="arc-dot" id="arc-dot" r="6" cx="170" cy="38" opacity="0"/>
+    </svg>
+    <div class="gauge-center">
+      <button class="go-btn" id="go-btn" type="button">GO</button>
+      <div class="live-readout" id="live-readout" hidden>
+        <div class="live-value" id="live-value">0</div>
+        <div class="live-unit">Mbps</div>
+        <div class="live-phase" id="live-phase">Connecting…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live sub-stats while testing -->
+  <section class="substats" id="substats" hidden>
+    <div class="substat"><span class="substat-label">Ping</span><span class="substat-value" id="sub-ping">—</span></div>
+    <div class="substat"><span class="substat-label">Jitter</span><span class="substat-value" id="sub-jitter">—</span></div>
+    <div class="substat"><span class="substat-label">Download</span><span class="substat-value" id="sub-down">—</span></div>
+    <div class="substat"><span class="substat-label">Upload</span><span class="substat-value" id="sub-up">—</span></div>
+  </section>
+
+  <!-- Results -->
+  <section class="results" id="results" hidden>
+    <div class="result-grid">
+      <div class="result-card primary">
+        <div class="result-label"><svg viewBox="0 0 16 16" class="ric"><path d="M8 2v8m0 0l-3-3m3 3l3-3M3 14h10" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</div>
+        <div class="result-value"><span id="r-down">—</span><span class="result-unit">Mbps</span></div>
+      </div>
+      <div class="result-card primary">
+        <div class="result-label"><svg viewBox="0 0 16 16" class="ric"><path d="M8 14V6m0 0L5 9m3-3l3 3M3 2h10" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Upload</div>
+        <div class="result-value"><span id="r-up">—</span><span class="result-unit">Mbps</span></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Ping</div>
+        <div class="result-value"><span id="r-ping">—</span><span class="result-unit">ms</span></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Jitter</div>
+        <div class="result-value"><span id="r-jitter">—</span><span class="result-unit">ms</span></div>
+      </div>
+    </div>
+    <button class="again-btn" id="again-btn" type="button">Test again</button>
+  </section>
+
+  <!-- Connection -->
+  <section class="conn" id="conn" hidden>
+    <div class="conn-row"><span>Provider</span><strong id="c-isp">—</strong></div>
+    <div class="conn-row"><span>Your IP</span><strong id="c-ip">—</strong></div>
+    <div class="conn-row"><span>Server</span><strong id="c-server">—</strong></div>
+  </section>
+
+  <!-- History -->
+  <section class="history" id="history" hidden>
+    <h2>Recent tests on this device</h2>
+    <div class="history-list" id="history-list"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <span>Runs on Cloudflare's global edge network. Measurements happen in your browser — nothing is stored or sent anywhere else.</span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
