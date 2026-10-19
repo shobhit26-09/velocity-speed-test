@@ -363,14 +363,20 @@
 
   function setPhase(t) { livePhase.textContent = t; }
 
-  async function lookupIPv4() { // api.ipify.org is IPv4-only, so it returns the IPv4 address if one is reachable
-    try {
-      var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 3000);
-      var resp = await fetch("https://api.ipify.org?format=json", { cache: "no-store", signal: ctl.signal });
-      clearTimeout(tm);
-      var j = await resp.json();
-      return j && /^\d{1,3}(\.\d{1,3}){3}$/.test(j.ip) ? j.ip : null;
-    } catch (e) { return null; }
+  function lookupIPv4() { // IPv4-only endpoints, raced; first valid IPv4 wins
+    var urls = ["https://api.ipify.org?format=json", "https://ipv4.icanhazip.com", "https://v4.ident.me"];
+    var re = /(\d{1,3}(?:\.\d{1,3}){3})/;
+    return new Promise(function (resolve) {
+      var pending = urls.length;
+      function fail() { if (--pending === 0) resolve(null); }
+      urls.forEach(function (u) {
+        var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 4000);
+        fetch(u, { cache: "no-store", signal: ctl.signal })
+          .then(function (r) { return r.text(); })
+          .then(function (t) { clearTimeout(tm); var m = re.exec(t); if (m) resolve(m[1]); else fail(); })
+          .catch(function () { clearTimeout(tm); fail(); });
+      });
+    });
   }
   function showIP(ip) {
     var el = $("c-ip");
