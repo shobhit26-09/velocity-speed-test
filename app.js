@@ -156,15 +156,13 @@
  if (!rtts.length) throw new Error("ping failed");
  var ping = Math.min.apply(null, rtts);
  // Jitter = median absolute difference between consecutive samples (robust to one-off spikes).
+ var sorted = rtts.slice().sort(function (x, y) { return x - y; });
+ var med = sorted[Math.floor(sorted.length / 2)];
+ var kept = rtts.filter(function (v) { return v <= med * 2; }); // ignore one-off spikes
  var diffs = [], j;
- for (j = 1; j < rtts.length; j++) diffs.push(Math.abs(rtts[j] - rtts[j - 1]));
- var jitter = 0;
- if (diffs.length) {
- diffs.sort(function (x, y) { return x - y; });
- var m = Math.floor(diffs.length / 2);
- jitter = diffs.length % 2 ? diffs[m] : (diffs[m - 1] + diffs[m]) / 2;
- }
- return { ping: ping, jitter: jitter };
+ for (j = 1; j < kept.length; j++) diffs.push(Math.abs(kept[j] - kept[j - 1]));
+ var jitter = diffs.length ? diffs.reduce(function (p, q) { return p + q; }, 0) / diffs.length : 0;
+  return { ping: ping, jitter: jitter };
  }
 
   async function measureDownload(onTick) {
@@ -382,28 +380,6 @@
     } catch (e) {}
     fillConnection();
   }
-
-  function computeVerdict(down, up, ping, jitter) {
- var level = 3; // 3 excellent, 2 good, 1 okay, 0 poor
- function cap(n) { if (n < level) level = n; }
- if (down < 100) cap(2); if (down < 25) cap(1); if (down < 8) cap(0);
- if (up < 20) cap(2); if (up < 5) cap(1); if (up < 1.5) cap(0);
- if (ping > 50) cap(2); if (ping > 100) cap(1); if (ping > 250) cap(0);
- if (jitter > 15) cap(2); if (jitter > 35) cap(1); if (jitter > 100) cap(0);
- var names = ["Poor", "Okay", "Good", "Excellent"];
- var ok = [], no = [];
- (down >= 25 ? ok : no).push("4K streaming");
- (up >= 3 && ping <= 150 && jitter <= 35 ? ok : no).push("video calls");
- (ping <= 60 && jitter <= 20 ? ok : no).push("online gaming");
- if (down >= 100) ok.push("big downloads");
- var line;
- if (!ok.length) line = "Basic browsing and email will work, but streaming and calls may struggle.";
- else {
- line = "Great for " + ok.join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
- if (no.length && level < 3) line += " " + no[0].charAt(0).toUpperCase() + no[0].slice(1) + " may struggle.";
- }
- return { name: names[level], cls: names[level].toLowerCase(), line: line };
- }
 
   function computeVerdict(down, up, ping, jitter) {
  var level = 3; // 3 excellent, 2 good, 1 okay, 0 poor
