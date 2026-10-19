@@ -417,12 +417,12 @@
  function cap(n) { if (n < level) level = n; }
  if (down < 100) cap(2); if (down < 25) cap(1); if (down < 8) cap(0);
  if (up < 20) cap(2); if (up < 5) cap(1); if (up < 1.5) cap(0);
- if (ping > 50) cap(2); if (ping > 100) cap(1); if (ping > 250) cap(0);
+ if (ping > 60) cap(2); if (ping > 150) cap(1); if (ping > 400) cap(0);
  if (jitter > 15) cap(2); if (jitter > 35) cap(1); if (jitter > 100) cap(0);
  var names = ["Poor", "Okay", "Good", "Excellent"];
  var ok = [], no = [];
  (down >= 25 ? ok : no).push("4K streaming");
- (up >= 3 && ping <= 150 && jitter <= 35 ? ok : no).push("video calls");
+ (up >= 3 && ping <= 250 && jitter <= 35 ? ok : no).push("video calls");
  (ping <= 60 && jitter <= 20 ? ok : no).push("online gaming");
  if (down >= 100) ok.push("big downloads");
  var line;
