@@ -421,20 +421,6 @@
     results.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
- function showResults(down, up, ping, jitter) {
-    substats.hidden = true;
-    var fm = function (v) { return fmtMbps(v); };
-    var fmPing = function (v) { return String(Math.round(v)); };
-    var fmJitter = function (v) { return v < 10 ? v.toFixed(1) : String(Math.round(v)); };
-    countUp($("headline-down"), down, fm, 1100);
-    countUp($("r-down"), down, fm, 900);
-    countUp($("r-up"), up, fm, 900);
-    countUp($("r-ping"), ping, fmPing, 700);
-    countUp($("r-jitter"), jitter, fmJitter, 700);
-    results.hidden = false;
-    results.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
-
   // ---------- history ----------
   var HKEY = "velocity-history-v1";
   function loadHistory() {
