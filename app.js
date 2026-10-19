@@ -383,7 +383,69 @@
     fillConnection();
   }
 
-  function showResults(down, up, ping, jitter) {
+  function computeVerdict(down, up, ping, jitter) {
+ var level = 3; // 3 excellent, 2 good, 1 okay, 0 poor
+ function cap(n) { if (n < level) level = n; }
+ if (down < 100) cap(2); if (down < 25) cap(1); if (down < 8) cap(0);
+ if (up < 20) cap(2); if (up < 5) cap(1); if (up < 1.5) cap(0);
+ if (ping > 50) cap(2); if (ping > 100) cap(1); if (ping > 250) cap(0);
+ if (jitter > 15) cap(2); if (jitter > 35) cap(1); if (jitter > 100) cap(0);
+ var names = ["Poor", "Okay", "Good", "Excellent"];
+ var ok = [], no = [];
+ (down >= 25 ? ok : no).push("4K streaming");
+ (up >= 3 && ping <= 150 && jitter <= 35 ? ok : no).push("video calls");
+ (ping <= 60 && jitter <= 20 ? ok : no).push("online gaming");
+ if (down >= 100) ok.push("big downloads");
+ var line;
+ if (!ok.length) line = "Basic browsing and email will work, but streaming and calls may struggle.";
+ else {
+ line = "Great for " + ok.join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
+ if (no.length && level < 3) line += " " + no[0].charAt(0).toUpperCase() + no[0].slice(1) + " may struggle.";
+ }
+ return { name: names[level], cls: names[level].toLowerCase(), line: line };
+ }
+
+  function computeVerdict(down, up, ping, jitter) {
+ var level = 3; // 3 excellent, 2 good, 1 okay, 0 poor
+ function cap(n) { if (n < level) level = n; }
+ if (down < 100) cap(2); if (down < 25) cap(1); if (down < 8) cap(0);
+ if (up < 20) cap(2); if (up < 5) cap(1); if (up < 1.5) cap(0);
+ if (ping > 50) cap(2); if (ping > 100) cap(1); if (ping > 250) cap(0);
+ if (jitter > 15) cap(2); if (jitter > 35) cap(1); if (jitter > 100) cap(0);
+ var names = ["Poor", "Okay", "Good", "Excellent"];
+ var ok = [], no = [];
+ (down >= 25 ? ok : no).push("4K streaming");
+ (up >= 3 && ping <= 150 && jitter <= 35 ? ok : no).push("video calls");
+ (ping <= 60 && jitter <= 20 ? ok : no).push("online gaming");
+ if (down >= 100) ok.push("big downloads");
+ var line;
+ if (!ok.length) line = "Basic browsing and email will work, but streaming and calls may struggle.";
+ else {
+ line = "Great for " + ok.join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
+ if (no.length && level < 3) line += " " + no[0].charAt(0).toUpperCase() + no[0].slice(1) + " may struggle.";
+ }
+ return { name: names[level], cls: names[level].toLowerCase(), line: line };
+ }
+
+ function showResults(down, up, ping, jitter) {
+    substats.hidden = true;
+    var fm = function (v) { return fmtMbps(v); };
+    var fmPing = function (v) { return String(Math.round(v)); };
+    var fmJitter = function (v) { return v < 10 ? v.toFixed(1) : String(Math.round(v)); };
+    countUp($("headline-down"), down, fm, 1100);
+    countUp($("r-down"), down, fm, 900);
+    countUp($("r-up"), up, fm, 900);
+    countUp($("r-ping"), ping, fmPing, 700);
+    countUp($("r-jitter"), jitter, fmJitter, 700);
+    var v = computeVerdict(down, up, ping, jitter);
+    $("verdict-title").textContent = v.name + " connection";
+    $("verdict-title").className = "verdict-title " + v.cls;
+    $("verdict-line").textContent = v.line;
+    results.hidden = false;
+    results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+ function showResults(down, up, ping, jitter) {
     substats.hidden = true;
     var fm = function (v) { return fmtMbps(v); };
     var fmPing = function (v) { return String(Math.round(v)); };
