@@ -2,7 +2,7 @@
 
 A fast, accurate, privacy-friendly internet speed test that runs entirely in the browser.
 
-**Live:** https://velocity-speed-test.netlify.app
+**Live:** https://velocity-speed.netlify.app
 
 ## What it measures
 
