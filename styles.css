@@ -125,7 +125,6 @@ body {
   stroke: url(#arcGrad);
   stroke-width: 10;
   stroke-linecap: round;
-  transition: stroke-dasharray 120ms linear;
 }
 
 .gauge .arc-dot { fill: #fff; transition: opacity 300ms; }
