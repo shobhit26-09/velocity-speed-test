@@ -90,7 +90,9 @@
     this.samples.push([now(), this.total]);
   };
   Throughput.prototype.windowMbps = function (windowMs) {
-    var t = now(), cutoff = t - windowMs, s = this.samples, base = s[0];
+    var t = now(), cutoff = t - windowMs, s = this.samples;
+    if (!s.length) return 0;
+    var base = s[0];
     while (s.length > 2 && s[1][0] < cutoff) { base = s.shift(); }
     var dt = (t - base[0]) / 1000;
     if (dt <= 0.001) return 0;
@@ -98,7 +100,9 @@
   };
   Throughput.prototype.overallMbps = function (warmupMs, startT) {
     // exclude ramp-up
-    var s = this.samples, i, base = s[0], cutoff = startT + warmupMs;
+    var s = this.samples;
+    if (!s.length) return 0;
+    var i, base = s[0], cutoff = startT + warmupMs;
     for (i = 0; i < s.length; i++) { if (s[i][0] <= cutoff) base = s[i]; else break; }
     var dt = (now() - Math.max(base[0], cutoff - 1)) / 1000;
     if (dt <= 0) dt = (now() - startT) / 1000;
@@ -338,8 +342,8 @@
     var isp = await lookupISP();
     $("c-isp").textContent = isp || (meta.asn ? "AS" + meta.asn : "Unknown");
     $("c-ip").textContent = meta.ip || "—";
-    var place = meta.city && meta.country ? meta.city + ", " + meta.country : (meta.colo || "—");
-    $("c-server").textContent = "Cloudflare edge — " + place;
+    var place = meta.city && meta.country ? meta.city + ", " + meta.country : meta.colo;
+    $("c-server").textContent = place ? "Cloudflare edge — " + place : "Cloudflare edge (nearest)";
     conn.hidden = false;
   }
 
