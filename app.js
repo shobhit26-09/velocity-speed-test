@@ -139,8 +139,9 @@
 
   async function measurePing() {
  // Warm-up requests absorb DNS/TLS/IPv6 connection setup so they don't count as latency.
- // Each sample has a hard timeout; stalled samples are dropped instead of poisoning jitter.
- var WARMUP = 3, TIMEOUT_MS = 2500, rtts = [], i, t0, resp, ctl, tm;
+ // Each sample has a hard timeout; timed-out samples are counted as packet loss and
+ // factored into the verdict, never silently dropped.
+ var WARMUP = 3, TIMEOUT_MS = 2500, rtts = [], failed = 0, i, t0, resp, ctl, tm;
  for (i = 0; i < PING_SAMPLES + WARMUP; i++) {
  ctl = new AbortController();
  tm = setTimeout(function () { ctl.abort(); }, TIMEOUT_MS);
@@ -149,20 +150,19 @@
  resp = await fetch(CF + "/__down?bytes=0&r=" + Math.random(), { cache: "no-store", signal: ctl.signal });
  grabMeta(resp.headers);
  if (i >= WARMUP) rtts.push(now() - t0);
- } catch (e) { /* skip failed or timed-out sample */ }
+ } catch (e) { if (i >= WARMUP) failed++; }
  clearTimeout(tm);
  if (i === WARMUP + 2 && rtts.length) setSub("sub-ping", Math.round(Math.min.apply(null, rtts)) + " ms");
  }
  if (!rtts.length) throw new Error("ping failed");
  var ping = Math.min.apply(null, rtts);
- // Jitter = median absolute difference between consecutive samples (robust to one-off spikes).
- var sorted = rtts.slice().sort(function (x, y) { return x - y; });
- var med = sorted[Math.floor(sorted.length / 2)];
- var kept = rtts.filter(function (v) { return v <= med * 2; }); // ignore one-off spikes
+ // Jitter = mean absolute difference between consecutive successful samples.
+ // Every successful post-warm-up sample counts - spikes are real latency variation,
+ // so there is no outlier filtering flattering the number.
  var diffs = [], j;
- for (j = 1; j < kept.length; j++) diffs.push(Math.abs(kept[j] - kept[j - 1]));
+ for (j = 1; j < rtts.length; j++) diffs.push(Math.abs(rtts[j] - rtts[j - 1]));
  var jitter = diffs.length ? diffs.reduce(function (p, q) { return p + q; }, 0) / diffs.length : 0;
-  return { ping: ping, jitter: jitter };
+  return { ping: ping, jitter: jitter, loss: (failed / PING_SAMPLES) * 100 };
  }
 
   async function measureDownload(onTick) {
@@ -346,7 +346,7 @@
       warp.setSpeed(down);
       setPhase("Done");
       setHeader("Test complete");
-      showResults(down, up, lat.ping, lat.jitter);
+      showResults(down, up, lat.ping, lat.jitter, lat.loss);
       saveResult(down, up, lat.ping, lat.jitter);
       fillConnection();
     } catch (e) {
@@ -412,18 +412,20 @@
     fillConnection();
   }
 
-  function computeVerdict(down, up, ping, jitter) {
+  function computeVerdict(down, up, ping, jitter, loss) {
+ loss = loss || 0;
  var level = 3; // 3 excellent, 2 good, 1 okay, 0 poor
  function cap(n) { if (n < level) level = n; }
  if (down < 100) cap(2); if (down < 25) cap(1); if (down < 8) cap(0);
  if (up < 20) cap(2); if (up < 5) cap(1); if (up < 1.5) cap(0);
  if (ping > 60) cap(2); if (ping > 150) cap(1); if (ping > 400) cap(0);
  if (jitter > 15) cap(2); if (jitter > 35) cap(1); if (jitter > 100) cap(0);
+ if (loss > 0) cap(2); if (loss > 10) cap(1); if (loss > 25) cap(0); // dropped packets are a real defect
  var names = ["Poor", "Okay", "Good", "Excellent"];
  var ok = [], no = [];
  (down >= 25 ? ok : no).push("4K streaming");
- (up >= 3 && ping <= 250 && jitter <= 35 ? ok : no).push("video calls");
- (ping <= 60 && jitter <= 20 ? ok : no).push("online gaming");
+ (up >= 3 && ping <= 250 && jitter <= 35 && loss <= 5 ? ok : no).push("video calls");
+ (ping <= 60 && jitter <= 20 && loss === 0 ? ok : no).push("online gaming");
  if (down >= 100) ok.push("big downloads");
  var line;
  if (!ok.length) line = "Basic browsing and email will work, but streaming and calls may struggle.";
@@ -431,10 +433,11 @@
  line = "Great for " + ok.join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
  if (no.length && level < 3) line += " " + no[0].charAt(0).toUpperCase() + no[0].slice(1) + " may struggle.";
  }
+ if (loss > 0) line += " Some test packets never came back, which points to an unstable connection.";
  return { name: names[level], cls: names[level].toLowerCase(), line: line };
  }
 
- function showResults(down, up, ping, jitter) {
+ function showResults(down, up, ping, jitter, loss) {
     substats.hidden = true;
     var fm = function (v) { return fmtMbps(v); };
     var fmPing = function (v) { return String(Math.round(v)); };
@@ -444,7 +447,7 @@
     countUp($("r-up"), up, fm, 900);
     countUp($("r-ping"), ping, fmPing, 700);
     countUp($("r-jitter"), jitter, fmJitter, 700);
-    var v = computeVerdict(down, up, ping, jitter);
+    var v = computeVerdict(down, up, ping, jitter, loss);
     $("verdict-title").textContent = v.name + " connection";
     $("verdict-title").className = "verdict-title " + v.cls;
     $("verdict-line").textContent = v.line;
