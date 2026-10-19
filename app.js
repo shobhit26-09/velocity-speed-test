@@ -64,17 +64,24 @@
     rafId = requestAnimationFrame(animateGauge);
   }
   function arcPath(f) {
- var a0 = START_DEG * Math.PI / 180, a1 = (START_DEG + SWEEP_DEG * f) * Math.PI / 180;
- var x0 = CX + R * Math.cos(a0), y0 = CY + R * Math.sin(a0);
- var x1 = CX + R * Math.cos(a1), y1 = CY + R * Math.sin(a1);
- var large = SWEEP_DEG * f > 180 ? 1 : 0;
- return "M" + x0.toFixed(2) + " " + y0.toFixed(2) + " A" + R + " " + R + " 0 " + large + " 1 " + x1.toFixed(2) + " " + y1.toFixed(2);
+ // Plain polyline from known centre/radius/angles: no arc commands, no measurement APIs.
+ var n = Math.max(2, Math.ceil(f * 120)), k, ang, d = "";
+ for (k = 0; k <= n; k++) {
+ ang = (START_DEG + SWEEP_DEG * f * (k / n)) * Math.PI / 180;
+ d += (k ? "L" : "M") + (CX + R * Math.cos(ang)).toFixed(2) + " " + (CY + R * Math.sin(ang)).toFixed(2);
+ }
+ return d;
+ }
+ function arcColor(f) { // green -> cyan -> blue, computed in JS (no SVG gradient)
+ var h = 140 + (212 - 140) * f; // hue 140 (green) .. 212 (blue)
+ return "hsl(" + h.toFixed(0) + ",85%,58%)";
  }
  function renderGauge() {
  var f = frac(displayed);
  var track = $("track");
- if (!track.getAttribute("d")) track.setAttribute("d", arcPath(0.9999));
- arc.setAttribute("d", f > 0.002 ? arcPath(Math.min(f, 0.9999)) : "");
+ if (!track.getAttribute("d")) track.setAttribute("d", arcPath(1));
+ arc.setAttribute("d", f > 0.002 ? arcPath(Math.min(f, 1)) : "");
+ arc.setAttribute("stroke", arcColor(f));
  var p = pointAt(f);
  arcDot.setAttribute("cx", p[0]); arcDot.setAttribute("cy", p[1]);
  arcDot.setAttribute("opacity", displayed > 0.3 ? "1" : "0");
