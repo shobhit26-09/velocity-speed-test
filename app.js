@@ -363,10 +363,35 @@
 
   function setPhase(t) { livePhase.textContent = t; }
 
+  async function lookupIPv4() { // api.ipify.org is IPv4-only, so it returns the IPv4 address if one is reachable
+    try {
+      var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 3000);
+      var resp = await fetch("https://api.ipify.org?format=json", { cache: "no-store", signal: ctl.signal });
+      clearTimeout(tm);
+      var j = await resp.json();
+      return j && /^\d{1,3}(\.\d{1,3}){3}$/.test(j.ip) ? j.ip : null;
+    } catch (e) { return null; }
+  }
+  function showIP(ip) {
+    var el = $("c-ip");
+    var full = ip || "";
+    if (!full) { el.textContent = "—"; return; }
+    var isV6 = full.indexOf(":") > -1;
+    var shown = isV6 && full.length > 20 ? full.slice(0, 9) + "…" + full.slice(-4) : full;
+    el.textContent = shown;
+    el.title = full;
+    el.style.cursor = "pointer";
+    el.onclick = function () {
+      var done = function () { el.textContent = "Copied"; setTimeout(function () { el.textContent = shown; }, 1200); };
+      try { navigator.clipboard.writeText(full).then(done, function () {}); } catch (e) {}
+    };
+  }
+
   async function fillConnection() {
     var isp = await lookupISP();
     $("c-isp").textContent = isp || (meta.asn ? "AS" + meta.asn : "Unknown");
-    $("c-ip").textContent = meta.ip || "—";
+    showIP(meta.ip);
+    if (meta.ip && meta.ip.indexOf(":") > -1) lookupIPv4().then(function (v4) { if (v4) showIP(v4); });
     var place = meta.city && meta.country ? meta.city + ", " + meta.country : meta.colo;
     $("c-server").textContent = place ? "Cloudflare edge — " + place : "Cloudflare edge (nearest)";
     conn.hidden = false;
