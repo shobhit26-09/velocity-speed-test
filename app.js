@@ -189,24 +189,29 @@
     var startT = now();
     var deadline = startT + UPLOAD_SECONDS * 1000;
     var payload = makeRandomBlob(16); // one buffer, sliced per request
-    var sizes = [1, 2, 4, 8, 12, 16]; // MB, progressive
+    var sizes = [1, 2, 4, 8, 12, 16]; // MB, progressive fallback
 
+    var activeXhrs = [];
     function postOnce(sizeMb) {
       return new Promise(function (resolve, reject) {
         var bytes = sizeMb * 1024 * 1024;
         var body = new Blob([payload.subarray(0, bytes)]);
         var xhr = new XMLHttpRequest();
         var last = 0;
+        activeXhrs.push(xhr);
         xhr.open("POST", CF + "/__up?r=" + Math.random(), true);
         xhr.upload.onprogress = function (ev) {
           tp.add(ev.loaded - last);
           last = ev.loaded;
         };
         xhr.onload = function () { resolve(); };
-        xhr.onerror = function () { reject(new Error("upload xhr failed")); };
+        xhr.onerror = function () { aborted ? resolve() : reject(new Error("upload xhr failed")); };
         xhr.onabort = function () { resolve(); };
         xhr.send(body);
       });
+    }
+    function abortInFlight() {
+      for (var a = 0; a < activeXhrs.length; a++) { try { activeXhrs[a].abort(); } catch (e) {} }
     }
 
     var aborted = false;
@@ -222,7 +227,7 @@
     var ui = setInterval(function () {
       onTick(tp.windowMbps(600));
       setSub("sub-up", fmtMbps(tp.windowMbps(1000)) + " Mbps");
-      if (now() > deadline) aborted = true;
+      if (now() > deadline) { aborted = true; abortInFlight(); }
     }, 100);
 
     var workers = [], i;
@@ -304,6 +309,7 @@
   }
 
   function showResults(down, up, ping, jitter) {
+    substats.hidden = true;
     $("r-down").textContent = fmtMbps(down);
     $("r-up").textContent = fmtMbps(up);
     $("r-ping").textContent = Math.round(ping);
