@@ -63,15 +63,24 @@
     renderGauge();
     rafId = requestAnimationFrame(animateGauge);
   }
-  function renderGauge() {
-    var f = frac(displayed);
-    arc.setAttribute("stroke-dasharray", (f * 75) + " 100");
-    var p = pointAt(f);
-    arcDot.setAttribute("cx", p[0]); arcDot.setAttribute("cy", p[1]);
-    arcDot.setAttribute("opacity", displayed > 0.3 ? "1" : "0");
-    liveValue.textContent = displayed < 10 ? displayed.toFixed(1) : Math.round(displayed);
-  }
-  function setGauge(v) {
+  function arcPath(f) {
+ var a0 = START_DEG * Math.PI / 180, a1 = (START_DEG + SWEEP_DEG * f) * Math.PI / 180;
+ var x0 = CX + R * Math.cos(a0), y0 = CY + R * Math.sin(a0);
+ var x1 = CX + R * Math.cos(a1), y1 = CY + R * Math.sin(a1);
+ var large = SWEEP_DEG * f > 180 ? 1 : 0;
+ return "M" + x0.toFixed(2) + " " + y0.toFixed(2) + " A" + R + " " + R + " 0 " + large + " 1 " + x1.toFixed(2) + " " + y1.toFixed(2);
+ }
+ function renderGauge() {
+ var f = frac(displayed);
+ var track = $("track");
+ if (!track.getAttribute("d")) track.setAttribute("d", arcPath(0.9999));
+ arc.setAttribute("d", f > 0.002 ? arcPath(Math.min(f, 0.9999)) : "");
+ var p = pointAt(f);
+ arcDot.setAttribute("cx", p[0]); arcDot.setAttribute("cy", p[1]);
+ arcDot.setAttribute("opacity", displayed > 0.3 ? "1" : "0");
+ liveValue.textContent = displayed < 10 ? displayed.toFixed(1) : Math.round(displayed);
+ }
+ function setGauge(v) {
     targetVal = v;
     if (!rafId) rafId = requestAnimationFrame(animateGauge);
   }
@@ -122,23 +131,34 @@
   }
 
   async function measurePing() {
-    var rtts = [], i, t0, resp;
-    for (i = 0; i < PING_SAMPLES; i++) {
-      t0 = now();
-      try {
-        resp = await fetch(CF + "/__down?bytes=0&r=" + Math.random(), { cache: "no-store" });
-        grabMeta(resp.headers);
-        rtts.push(now() - t0);
-      } catch (e) { /* skip failed sample */ }
-      if (i === 2) setSub("sub-ping", Math.round(Math.min.apply(null, rtts)) + " ms");
-    }
-    if (!rtts.length) throw new Error("ping failed");
-    var ping = Math.min.apply(null, rtts);
-    var diffs = [], j;
-    for (j = 1; j < rtts.length; j++) diffs.push(Math.abs(rtts[j] - rtts[j - 1]));
-    var jitter = diffs.length ? diffs.reduce(function (a, b) { return a + b; }, 0) / diffs.length : 0;
-    return { ping: ping, jitter: jitter };
-  }
+ // Warm-up requests absorb DNS/TLS/IPv6 connection setup so they don't count as latency.
+ // Each sample has a hard timeout; stalled samples are dropped instead of poisoning jitter.
+ var WARMUP = 3, TIMEOUT_MS = 2500, rtts = [], i, t0, resp, ctl, tm;
+ for (i = 0; i < PING_SAMPLES + WARMUP; i++) {
+ ctl = new AbortController();
+ tm = setTimeout(function () { ctl.abort(); }, TIMEOUT_MS);
+ t0 = now();
+ try {
+ resp = await fetch(CF + "/__down?bytes=0&r=" + Math.random(), { cache: "no-store", signal: ctl.signal });
+ grabMeta(resp.headers);
+ if (i >= WARMUP) rtts.push(now() - t0);
+ } catch (e) { /* skip failed or timed-out sample */ }
+ clearTimeout(tm);
+ if (i === WARMUP + 2 && rtts.length) setSub("sub-ping", Math.round(Math.min.apply(null, rtts)) + " ms");
+ }
+ if (!rtts.length) throw new Error("ping failed");
+ var ping = Math.min.apply(null, rtts);
+ // Jitter = median absolute difference between consecutive samples (robust to one-off spikes).
+ var diffs = [], j;
+ for (j = 1; j < rtts.length; j++) diffs.push(Math.abs(rtts[j] - rtts[j - 1]));
+ var jitter = 0;
+ if (diffs.length) {
+ diffs.sort(function (x, y) { return x - y; });
+ var m = Math.floor(diffs.length / 2);
+ jitter = diffs.length % 2 ? diffs[m] : (diffs[m - 1] + diffs[m]) / 2;
+ }
+ return { ping: ping, jitter: jitter };
+ }
 
   async function measureDownload(onTick) {
     var tp = new Throughput();
