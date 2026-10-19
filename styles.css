@@ -122,9 +122,9 @@ body {
 
 .gauge .arc {
   fill: none;
-  stroke: url(#arcGrad);
   stroke-width: 10;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .gauge .arc-dot { fill: #fff; transition: opacity 300ms; }
