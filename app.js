@@ -316,8 +316,8 @@
       var up = await measureUpload(function (live) { setGauge(live); warp.setSpeed(live); });
       phaseState("upload", "done");
 
-      // Final: leave gauge on download headline
-      setGauge(down);
+      // Final: settle the gauge exactly on the download headline so it matches the results
+      displayed = down; targetVal = down; renderGauge();
       warp.setSpeed(down);
       setPhase("Done");
       setHeader("Test complete");
