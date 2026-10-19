@@ -401,3 +401,11 @@ body {
   .go-btn, .again-btn { transition: none; }
   .go-btn::after, .phase.active .phase-ring, .status-pill.busy .status-dot { animation: none; }
 }
+
+/* ---------- Verdict ---------- */
+.verdict { text-align: center; margin: 22px auto 4px; max-width: 420px; }
+.verdict-title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.verdict-title.excellent, .verdict-title.good { color: var(--green); }
+.verdict-title.okay { color: #ffd60a; }
+.verdict-title.poor { color: #ff453a; }
+.verdict-line { margin-top: 6px; font-size: 15px; line-height: 1.45; color: var(--text-dim); }
