@@ -17,6 +17,7 @@
   var arc = $("arc"), arcDot = $("arc-dot");
   var substats = $("substats"), results = $("results"), conn = $("conn");
   var headerMeta = $("header-meta");
+  var warp = window.VelocityWarp || { setSpeed: function () {} };
 
   // ---------- Gauge ----------
   var CX = 170, CY = 170, R = 132, START_DEG = 135, SWEEP_DEG = 270;
@@ -77,7 +78,6 @@
 
   // ---------- helpers ----------
   function now() { return performance.now(); }
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function fmtMbps(v) { return v >= 100 ? Math.round(v) : v >= 10 ? v.toFixed(1) : v.toFixed(2); }
 
   // Sliding-window throughput tracker
@@ -250,8 +250,30 @@
 
   // ---------- UI ----------
   function setSub(id, v) { $(id).textContent = v; }
-  function setPhase(t) { livePhase.textContent = t; }
-  function setHeader(t) { headerMeta.textContent = t; }
+  function setHeader(t) { headerMeta.childNodes[headerMeta.childNodes.length - 1].textContent = t; }
+  function setBusy(on) { headerMeta.classList.toggle("busy", on); }
+
+  var PHASES = ["ping", "jitter", "download", "upload"];
+  function phaseState(name, state) {
+    var el = $("phase-" + name);
+    if (!el) return;
+    if (state === "active") { el.classList.add("active"); el.classList.remove("done"); }
+    else if (state === "done") { el.classList.remove("active"); el.classList.add("done"); }
+    else { el.classList.remove("active"); el.classList.remove("done"); }
+  }
+  function resetPhases() { PHASES.forEach(function (p) { phaseState(p, "idle"); }); }
+
+  function countUp(el, finalVal, fmt, ms) {
+    var t0 = now();
+    function step() {
+      var k = Math.min(1, (now() - t0) / ms);
+      var eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmt(finalVal * eased);
+      if (k < 1) requestAnimationFrame(step);
+      else el.textContent = fmt(finalVal);
+    }
+    requestAnimationFrame(step);
+  }
 
   var running = false;
 
@@ -266,24 +288,33 @@
     displayed = 0; targetVal = 0; renderGauge();
     setSub("sub-ping", "—"); setSub("sub-jitter", "—");
     setSub("sub-down", "—"); setSub("sub-up", "—");
+    resetPhases();
+    setBusy(true);
 
     try {
       // Phase 1: latency
       setPhase("Ping"); setHeader("Measuring latency…");
+      phaseState("ping", "active"); phaseState("jitter", "active");
       var lat = await measurePing();
       setSub("sub-ping", Math.round(lat.ping) + " ms");
       setSub("sub-jitter", lat.jitter < 10 ? lat.jitter.toFixed(1) + " ms" : Math.round(lat.jitter) + " ms");
+      phaseState("ping", "done"); phaseState("jitter", "done");
 
       // Phase 2: download
       setPhase("Download"); setHeader("Testing download…");
-      var down = await measureDownload(function (live) { setGauge(live); });
+      phaseState("download", "active");
+      var down = await measureDownload(function (live) { setGauge(live); warp.setSpeed(live); });
+      phaseState("download", "done");
 
       // Phase 3: upload
       setPhase("Upload"); setHeader("Testing upload…");
-      var up = await measureUpload(function (live) { setGauge(live); });
+      phaseState("upload", "active");
+      var up = await measureUpload(function (live) { setGauge(live); warp.setSpeed(live); });
+      phaseState("upload", "done");
 
       // Final: leave gauge on download headline
       setGauge(down);
+      warp.setSpeed(down);
       setPhase("Done");
       setHeader("Test complete");
       showResults(down, up, lat.ping, lat.jitter);
@@ -294,10 +325,14 @@
       setHeader("Could not reach the test server — check your connection and try again");
       liveReadout.hidden = true;
       goBtn.hidden = false;
+      warp.setSpeed(null);
     }
+    setBusy(false);
     goBtn.disabled = false;
     running = false;
   }
+
+  function setPhase(t) { livePhase.textContent = t; }
 
   async function fillConnection() {
     var isp = await lookupISP();
@@ -308,12 +343,25 @@
     conn.hidden = false;
   }
 
+  // Preload connection info on first paint so it reads like a real tool, speedtest.net-style
+  async function preloadMeta() {
+    try {
+      var resp = await fetch(CF + "/__down?bytes=0&r=" + Math.random(), { cache: "no-store" });
+      grabMeta(resp.headers);
+    } catch (e) {}
+    fillConnection();
+  }
+
   function showResults(down, up, ping, jitter) {
     substats.hidden = true;
-    $("r-down").textContent = fmtMbps(down);
-    $("r-up").textContent = fmtMbps(up);
-    $("r-ping").textContent = Math.round(ping);
-    $("r-jitter").textContent = jitter < 10 ? jitter.toFixed(1) : Math.round(jitter);
+    var fm = function (v) { return fmtMbps(v); };
+    var fmPing = function (v) { return String(Math.round(v)); };
+    var fmJitter = function (v) { return v < 10 ? v.toFixed(1) : String(Math.round(v)); };
+    countUp($("headline-down"), down, fm, 1100);
+    countUp($("r-down"), down, fm, 900);
+    countUp($("r-up"), up, fm, 900);
+    countUp($("r-ping"), ping, fmPing, 700);
+    countUp($("r-jitter"), jitter, fmJitter, 700);
     results.hidden = false;
     results.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
@@ -355,6 +403,7 @@
   buildTicks();
   renderGauge();
   renderHistory();
+  preloadMeta();
   goBtn.addEventListener("click", runTest);
   againBtn.addEventListener("click", function () {
     results.hidden = true;
