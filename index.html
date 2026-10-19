@@ -9,7 +9,9 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+<canvas id="warp" aria-hidden="true"></canvas>
 <div class="bg-aurora" aria-hidden="true"></div>
+<div class="hairline" aria-hidden="true"></div>
 
 <header class="site-header">
   <div class="brand">
@@ -21,7 +23,7 @@
     </svg>
     <span class="brand-name">Velocity</span>
   </div>
-  <div class="header-meta" id="header-meta">Ready when you are</div>
+  <div class="status-pill" id="header-meta"><span class="status-dot"></span>Ready when you are</div>
 </header>
 
 <main class="stage">
@@ -47,7 +49,7 @@
       <circle class="arc-dot" id="arc-dot" r="6" cx="170" cy="38" opacity="0"/>
     </svg>
     <div class="gauge-center">
-      <button class="go-btn" id="go-btn" type="button">GO</button>
+      <button class="go-btn" id="go-btn" type="button"><span>GO</span></button>
       <div class="live-readout" id="live-readout" hidden>
         <div class="live-value" id="live-value">0</div>
         <div class="live-unit">Mbps</div>
@@ -56,16 +58,32 @@
     </div>
   </section>
 
-  <!-- Live sub-stats while testing -->
-  <section class="substats" id="substats" hidden>
-    <div class="substat"><span class="substat-label">Ping</span><span class="substat-value" id="sub-ping">—</span></div>
-    <div class="substat"><span class="substat-label">Jitter</span><span class="substat-value" id="sub-jitter">—</span></div>
-    <div class="substat"><span class="substat-label">Download</span><span class="substat-value" id="sub-down">—</span></div>
-    <div class="substat"><span class="substat-label">Upload</span><span class="substat-value" id="sub-up">—</span></div>
+  <!-- Phase timeline -->
+  <section class="phases" id="substats" hidden>
+    <div class="phase" id="phase-ping">
+      <span class="phase-ring"></span>
+      <span class="phase-text"><span class="phase-name">Ping</span><span class="phase-value" id="sub-ping">—</span></span>
+    </div>
+    <div class="phase" id="phase-jitter">
+      <span class="phase-ring"></span>
+      <span class="phase-text"><span class="phase-name">Jitter</span><span class="phase-value" id="sub-jitter">—</span></span>
+    </div>
+    <div class="phase" id="phase-download">
+      <span class="phase-ring"></span>
+      <span class="phase-text"><span class="phase-name">Download</span><span class="phase-value" id="sub-down">—</span></span>
+    </div>
+    <div class="phase" id="phase-upload">
+      <span class="phase-ring"></span>
+      <span class="phase-text"><span class="phase-name">Upload</span><span class="phase-value" id="sub-up">—</span></span>
+    </div>
   </section>
 
   <!-- Results -->
   <section class="results" id="results" hidden>
+    <div class="headline">
+      <div class="headline-number"><span id="headline-down">0</span><span class="headline-unit">Mbps</span></div>
+      <div class="headline-label">download speed</div>
+    </div>
     <div class="result-grid">
       <div class="result-card primary">
         <div class="result-label"><svg viewBox="0 0 16 16" class="ric"><path d="M8 2v8m0 0l-3-3m3 3l3-3M3 14h10" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</div>
@@ -105,6 +123,7 @@
   <span>Runs on Cloudflare's global edge network. Measurements happen in your browser — nothing is stored or sent anywhere else.</span>
 </footer>
 
+<script src="warp.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
